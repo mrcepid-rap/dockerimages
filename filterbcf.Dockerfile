@@ -58,7 +58,7 @@ RUN cd ensembl-vep/cache/Plugins/ \
     && git checkout grch38
 
 # Install plink (just a binary – easy)
-ADD https://s3.amazonaws.com/plink2-assets/alpha2/plink2_linux_avx2.zip plink2.zip
+ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_avx2_20211217.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
