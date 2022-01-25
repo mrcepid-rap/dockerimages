@@ -43,7 +43,7 @@ RUN apt -y install python python3-pip --yes \
 
 RUN tar -zxf master.tar.gz \
     && mv SAIGE-master SAIGE \
-    && R -e "install.packages(c('R.utils', 'Rcpp', 'RcppParallel', 'RcppArmadillo', 'data.table', 'RcppEigen', 'Matrix', 'BH', 'optparse', 'SPAtest', 'rversions', 'roxygen2', 'devtools', 'qlcMatrix'), dependencies=T, repos='https://cloud.r-project.org')"
+    && R -e "install.packages(c('R.utils', 'Rcpp', 'RcppParallel', 'RcppArmadillo', 'data.table', 'RcppEigen', 'Matrix', 'BH', 'optparse', 'SPAtest', 'rversions', 'roxygen2', 'devtools', 'qlcMatrix', 'BiocManager'), dependencies=T, repos='https://cloud.r-project.org')"
 
 ## Have to run this separate since you can't install a package and use it at the same time?
 RUN R -e "library(devtools); devtools::install_github('leeshawn/SKAT')" \
@@ -56,7 +56,7 @@ RUN R -e "library(devtools); devtools::install_github('leeshawn/SKAT')" \
     && rm master.tar.gz
 
 # Install STAAR
-RUN R -e "install.packages(c('GMMAT', 'kinship2', 'BiocManager', 'MASS'), dependencies=T, repos='https://cloud.r-project.org')"
+RUN R -e "install.packages(c('GMMAT', 'kinship2', 'MASS'), dependencies=T, repos='https://cloud.r-project.org')"
 RUN R -e "BiocManager::install('GENESIS')" \
     && R -e "devtools::install_github('xihaoli/STAAR')"
 
