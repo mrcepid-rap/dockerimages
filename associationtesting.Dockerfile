@@ -4,13 +4,19 @@ FROM ubuntu:20.04
 
 ## Install standard dependencies
 RUN apt -y update \
-    && apt -y install gcc make autoconf git
+    && apt -y install gcc make autoconf git zip gzip
 
 ## Install BCFtools version with plugins & samtools
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 
-RUN apt -y install zlib1g-dev libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libperl-dev libgsl-dev samtools \
+RUN apt -y install libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libperl-dev libgsl-dev samtools \
     && git clone --recurse-submodules git://github.com/samtools/htslib.git \
+    && cd htslib \
+    && autoreconf && ./configure --prefix=$PWD \
+    && make && make install \
+    && ln bin/bgzip /bin/bgzip \
+    && ln bin/tabix /bin/tabix \
+    && cd ../ \
     && git clone git://github.com/samtools/bcftools.git \
     && cd bcftools \
     && autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters \
@@ -43,7 +49,7 @@ RUN apt -y install python python3-pip --yes \
 
 RUN tar -zxf master.tar.gz \
     && mv SAIGE-master SAIGE \
-    && R -e "install.packages(c('R.utils', 'Rcpp', 'RcppParallel', 'RcppArmadillo', 'data.table', 'RcppEigen', 'Matrix', 'BH', 'optparse', 'SPAtest', 'rversions', 'roxygen2', 'devtools', 'qlcMatrix', 'BiocManager'), dependencies=T, repos='https://cloud.r-project.org')"
+    && R -e "install.packages(c('R.utils', 'Rcpp', 'RcppParallel', 'RcppArmadillo', 'data.table', 'RcppEigen', 'Matrix', 'BH', 'optparse', 'SPAtest', 'rversions', 'roxygen2', 'devtools', 'qlcMatrix', 'BiocManager','RhpcBLASctl'), dependencies=T, repos='https://cloud.r-project.org')"
 
 ## Have to run this separate since you can't install a package and use it at the same time?
 RUN R -e "library(devtools); devtools::install_github('leeshawn/SKAT')" \
@@ -63,18 +69,17 @@ RUN R -e "BiocManager::install('GENESIS')" \
 # Install REGENIE
 ADD https://github.com/rgcgithub/regenie/releases/download/v2.2.4/regenie_v2.2.4.gz_x86_64_Linux.zip regenie_v2.2.4.gz_x86_64_Linux.zip
 
-RUN apt -y install zip \
-    && unzip regenie_v2.2.4.gz_x86_64_Linux.zip \
+RUN unzip regenie_v2.2.4.gz_x86_64_Linux.zip \
     && mv regenie_v2.2.4.gz_x86_64_Linux /usr/bin/regenie \
     && rm regenie_v2.2.4.gz_x86_64_Linux.zip
 
 # Install BOLT
-ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.3.5.tar.gz BOLT-LMM_v2.3.5.tar.gz
+ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.3.6.tar.gz BOLT-LMM_v2.3.6.tar.gz
 
-RUN tar -zxf BOLT-LMM_v2.3.5.tar.gz \
-    && rm BOLT-LMM_v2.3.5.tar.gz
+RUN tar -zxf BOLT-LMM_v2.3.6.tar.gz \
+    && rm BOLT-LMM_v2.3.6.tar.gz
 
-ENV PATH=BOLT-LMM_v2.3.5/:$PATH
+ENV PATH=BOLT-LMM_v2.3.6/:$PATH
 
 # Install plink/plink2 (just a binary – easy)
 ADD https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20210606.zip plink.zip
@@ -84,10 +89,26 @@ RUN mkdir plink \
     && rm plink.zip \
     && ln plink/plink /usr/bin/
 
-ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_avx2_20211011.zip plink2.zip
+ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_avx2_20220129.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
     && rm plink2.zip \
     && ln plink2/plink2 /usr/bin/
+
+# Install qctool/bgenix
+ADD https://www.well.ox.ac.uk/~gav/resources/qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz
+ADD https://enkre.net/cgi-bin/code/bgen/tarball/665dda1221/BGEN-665dda1221.tar.gz BGEN-665dda1221.tar.gz
+
+RUN tar -zxf qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz \
+    && mv 'qctool_v2.2.0-CentOS Linux7.8.2003-x86_64/' 'qctool_v2.2.0' \
+    && rm qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz \
+    && ln qctool_v2.2.0/qctool /usr/bin/
+
+RUN tar -zxf BGEN-665dda1221.tar.gz \
+    && rm BGEN-665dda1221.tar.gz \
+    && cd BGEN-665dda1221 \
+    && ./waf configure \
+    && ./waf \
+    && ln build/apps/* /bin/
 
