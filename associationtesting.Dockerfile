@@ -9,15 +9,15 @@ RUN apt -y update \
 ## Install BCFtools version with plugins & samtools
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 
-RUN apt -y install libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libperl-dev libgsl-dev samtools \
-    && git clone --recurse-submodules git://github.com/samtools/htslib.git \
+RUN apt -y install libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libperl-dev libgsl-dev zlib1g-dev samtools \
+    && git clone --recurse-submodules https://github.com/samtools/htslib.git \
     && cd htslib \
     && autoreconf && ./configure --prefix=$PWD \
     && make && make install \
     && ln bin/bgzip /bin/bgzip \
     && ln bin/tabix /bin/tabix \
     && cd ../ \
-    && git clone git://github.com/samtools/bcftools.git \
+    && git clone https://github.com/samtools/bcftools.git \
     && cd bcftools \
     && autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters \
     && make \
@@ -42,24 +42,19 @@ RUN apt -y install libreadline-dev libz-dev libpcre3-dev libssl-dev libopenblas-
     && rm -rf R-4.1.1*
 
 # Install SAIGE
-ADD https://github.com/weizhouUMICH/SAIGE/archive/master.tar.gz master.tar.gz
-
 RUN apt -y install python python3-pip --yes \
     && pip3 install cget
 
-RUN tar -zxf master.tar.gz \
-    && mv SAIGE-master SAIGE \
-    && R -e "install.packages(c('R.utils', 'Rcpp', 'RcppParallel', 'RcppArmadillo', 'data.table', 'RcppEigen', 'Matrix', 'BH', 'optparse', 'SPAtest', 'rversions', 'roxygen2', 'devtools', 'qlcMatrix', 'BiocManager','RhpcBLASctl'), dependencies=T, repos='https://cloud.r-project.org')"
-
-## Have to run this separate since you can't install a package and use it at the same time?
-RUN R -e "library(devtools); devtools::install_github('leeshawn/SKAT')" \
+RUN git clone --depth 1 -b main https://github.com/saigegit/SAIGE \
+    && R -e "install.packages(c('devtools','RcppArmadillo'), dependencies=T, repos='https://cloud.r-project.org')" \
+    && R -e "library(devtools); devtools::install_github('leeshawn/SKAT')" \
     && R -e "library(devtools); devtools::install_github('leeshawn/MetaSKAT')" \
+    && Rscript ./SAIGE/extdata/install_packages.R \
     && R CMD INSTALL SAIGE \
     && chmod +x SAIGE/extdata/*.R \
     && ln SAIGE/extdata/step1_fitNULLGLMM.R /usr/bin/ \
     && ln SAIGE/extdata/step2_SPAtests.R /usr/bin/ \
-    && ln SAIGE/extdata/createSparseGRM.R /usr/bin/ \
-    && rm master.tar.gz
+    && ln SAIGE/extdata/createSparseGRM.R /usr/bin/
 
 # Install STAAR
 RUN R -e "install.packages(c('GMMAT', 'kinship2', 'MASS'), dependencies=T, repos='https://cloud.r-project.org')"
@@ -67,11 +62,13 @@ RUN R -e "BiocManager::install('GENESIS')" \
     && R -e "devtools::install_github('xihaoli/STAAR')"
 
 # Install REGENIE
-ADD https://github.com/rgcgithub/regenie/releases/download/v2.2.4/regenie_v2.2.4.gz_x86_64_Linux.zip regenie_v2.2.4.gz_x86_64_Linux.zip
+ADD https://github.com/rgcgithub/regenie/releases/download/v3.0/regenie_v3.0.gz_x86_64_Linux_mkl.zip regenie_v3.0.gz_x86_64_Linux_mkl.zip
 
-RUN unzip regenie_v2.2.4.gz_x86_64_Linux.zip \
-    && mv regenie_v2.2.4.gz_x86_64_Linux /usr/bin/regenie \
-    && rm regenie_v2.2.4.gz_x86_64_Linux.zip
+RUN apt -y install gcc-7 g++-7 \
+    && apt -y install gfortran-7 \
+    && unzip regenie_v3.0.gz_x86_64_Linux_mkl.zip \
+    && mv regenie_v3.0.gz_x86_64_Linux_mkl /usr/bin/regenie \
+    && rm regenie_v3.0.gz_x86_64_Linux_mkl.zip
 
 # Install BOLT
 ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.3.6.tar.gz BOLT-LMM_v2.3.6.tar.gz
@@ -82,14 +79,14 @@ RUN tar -zxf BOLT-LMM_v2.3.6.tar.gz \
 ENV PATH=BOLT-LMM_v2.3.6/:$PATH
 
 # Install plink/plink2 (just a binary – easy)
-ADD https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20210606.zip plink.zip
+ADD https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20220305.zip plink.zip
 
 RUN mkdir plink \
     && unzip plink.zip -d plink/ \
     && rm plink.zip \
     && ln plink/plink /usr/bin/
 
-ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_avx2_20220129.zip plink2.zip
+ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_avx2_20220317.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
