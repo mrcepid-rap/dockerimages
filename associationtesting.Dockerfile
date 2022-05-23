@@ -62,13 +62,13 @@ RUN R -e "BiocManager::install('GENESIS')" \
     && R -e "devtools::install_github('xihaoli/STAAR')"
 
 # Install REGENIE
-ADD https://github.com/rgcgithub/regenie/releases/download/v3.0/regenie_v3.0.gz_x86_64_Linux_mkl.zip regenie_v3.0.gz_x86_64_Linux_mkl.zip
+ADD https://github.com/rgcgithub/regenie/releases/download/v3.1.1/regenie_v3.1.1.gz_x86_64_Linux_mkl.zip regenie_v3.1.1.gz_x86_64_Linux_mkl.zip
 
 RUN apt -y install gcc-7 g++-7 \
     && apt -y install gfortran-7 \
-    && unzip regenie_v3.0.gz_x86_64_Linux_mkl.zip \
-    && mv regenie_v3.0.gz_x86_64_Linux_mkl /usr/bin/regenie \
-    && rm regenie_v3.0.gz_x86_64_Linux_mkl.zip
+    && unzip regenie_v3.1.1.gz_x86_64_Linux_mkl.zip \
+    && mv regenie_v3.1.1.gz_x86_64_Linux_mkl /usr/bin/regenie \
+    && rm regenie_v3.1.1.gz_x86_64_Linux_mkl.zip
 
 # Install BOLT
 ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.3.6.tar.gz BOLT-LMM_v2.3.6.tar.gz
@@ -79,14 +79,14 @@ RUN tar -zxf BOLT-LMM_v2.3.6.tar.gz \
 ENV PATH=BOLT-LMM_v2.3.6/:$PATH
 
 # Install plink/plink2 (just a binary – easy)
-ADD https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20220305.zip plink.zip
+ADD https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20220402.zip plink.zip
 
 RUN mkdir plink \
     && unzip plink.zip -d plink/ \
     && rm plink.zip \
     && ln plink/plink /usr/bin/
 
-ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_avx2_20220317.zip plink2.zip
+ADD https://s3.amazonaws.com/plink2-assets/alpha3/plink2_linux_avx2_20220514.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
