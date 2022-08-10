@@ -1,5 +1,4 @@
 FROM ubuntu:20.04
-
 # To run/build: docker build -t egardner413/mrcepid-associationtesting:latest .
 
 ## Install standard dependencies
@@ -108,4 +107,6 @@ RUN tar -zxf BGEN-665dda1221.tar.gz \
     && ./waf configure \
     && ./waf \
     && ln build/apps/* /bin/
+
+
 
