@@ -3,7 +3,7 @@ FROM ubuntu:20.04
 # Ensure /bin/bash is the default shell
 SHELL ["/bin/bash", "-c"]
 
-# To run/build: docker build -t egardner413/mrcepid-burdentesting:latest .
+# To run/build: docker build -f burdentesting.Dockerfile -t egardner413/mrcepid-burdentesting:latest .
 
 ## Install all software dependencies for downstream builds
 RUN apt -y update \
@@ -102,7 +102,7 @@ RUN tar xvzf R-4.1.1.tar.gz \
     && rm -rf R-4.1.1*
 
 # Required R packages
-RUN R -e "install.packages(c('devtools','RcppArmadillo', 'GMMAT', 'kinship2', 'MASS'), dependencies=T, repos='https://cloud.r-project.org')" \
+RUN R -e "install.packages(c('devtools','RcppArmadillo', 'GMMAT', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork'), dependencies=T, repos='https://cloud.r-project.org')" \
     && R -e "BiocManager::install('GENESIS')"
 
 ## Install VEP
