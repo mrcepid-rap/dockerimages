@@ -197,6 +197,7 @@ RUN mkdir plink2 \
     && rm plink2.zip
 
 # bedtools
-add https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools.static.binary bedtools \
-    chmod a+x bedtools \
-    ln bedtools /usr/bin/
+ADD https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools.static.binary bedtools
+
+RUN chmod a+x bedtools \
+    && ln bedtools /usr/bin/
