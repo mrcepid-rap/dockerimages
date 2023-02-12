@@ -5,18 +5,19 @@ SHELL ["/bin/bash", "-c"]
 
 # To run/build: docker build -f burdentesting.Dockerfile -t egardner413/mrcepid-burdentesting:latest .
 
-## Install all software dependencies for downstream builds
+## Install basic software dependencies for required for downstream apt install
 RUN apt -y update \
     && apt -y install gcc make autoconf git zip
 
 # Have to install tzdata in the middle due to goofy interactive mode
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 
+# Install remaining apt packages
 RUN apt -y install gfortran g++ cmake meson ragel gtk-doc-tools ca-certificates curl wget expat default-jre \
-    && apt -y install python python3-pip cpanminus \
-    && apt -y install libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev \
-    && apt -y install libreadline-dev libz-dev libpcre3-dev libssl-dev libopenblas-dev libeigen3-dev  libglib2.0-dev \
-    && apt -y install libboost-all-dev libcairo2-dev libxml2-dev libmysqlclient-dev libpng-dev libexpat1-dev libfribidi-dev libharfbuzz-dev \
+    python python3-pip cpanminus  \
+    libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev \
+    libreadline-dev libz-dev libpcre3-dev libssl-dev libopenblas-dev libeigen3-dev  libglib2.0-dev \
+    libboost-all-dev libcairo2-dev libxml2-dev libmysqlclient-dev libpng-dev libexpat1-dev libfribidi-dev libharfbuzz-dev \
     && apt -y clean
 
 ## Install CADD
@@ -26,7 +27,7 @@ ENV PATH=/opt/conda/bin:$PATH
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh  \
     && /bin/bash ~/miniconda.sh -b -p /opt/conda  \
     && rm ~/miniconda.sh  \
-    && /opt/conda/bin/conda clean -tipsy  \
+    && /opt/conda/bin/conda clean -tipy  \
     && ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh  \
     && echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc  \
     && echo "conda activate base" >> ~/.bashrc \
