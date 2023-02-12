@@ -171,8 +171,13 @@ RUN git clone https://github.com/rgcgithub/regenie.git \
 
 # BOLT
 ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.4.tar.gz BOLT-LMM_v2.4.tar.gz
+# Testing a beta version of BOLT for this release
+ADD https://data.broadinstitute.org/lohlab/tmp/bolt_v2.4.1_beta bolt_v2.4.1_beta
 
 RUN tar -zxf BOLT-LMM_v2.4.tar.gz \
+    && rm BOLT-LMM_v2.4/bolt \
+    && mv bolt_v2.4.1_beta BOLT-LMM_v2.4/bolt \
+    && chmod +x BOLT-LMM_v2.4/bolt \
     && rm BOLT-LMM_v2.4.tar.gz
 
 ENV PATH=BOLT-LMM_v2.4/:$PATH
