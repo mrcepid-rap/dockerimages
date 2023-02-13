@@ -118,6 +118,7 @@ RUN cpanm install Archive::Zip \
 # Remember, we have placed the actual cache into our project files
 RUN git clone https://github.com/Ensembl/ensembl-vep.git \
     && cd ensembl-vep \
+    && git checkout release/108 \
     && perl INSTALL.pl --AUTO ap --PLUGINS CADD,REVEL --CACHEDIR cache/
 
 # Then LOFTEE (first KENNTTTTTTT. RAGEEEEE.)
