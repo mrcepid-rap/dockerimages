@@ -119,7 +119,7 @@ RUN cpanm install Archive::Zip \
 RUN git clone https://github.com/Ensembl/ensembl-vep.git \
     && cd ensembl-vep \
     && git checkout release/108 \
-    && perl INSTALL.pl --AUTO ap --PLUGINS CADD,REVEL --CACHEDIR cache/
+    && perl INSTALL.pl --AUTO ap --NO_UPDATE --PLUGINS CADD,REVEL --CACHEDIR cache/
 
 # Then LOFTEE (first KENNTTTTTTT. RAGEEEEE.)
 ADD https://github.com/ucscGenomeBrowser/kent/archive/v335_base.tar.gz v335_base.tar.gz
