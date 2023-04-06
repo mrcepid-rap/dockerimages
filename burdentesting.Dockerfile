@@ -172,17 +172,13 @@ RUN git clone https://github.com/rgcgithub/regenie.git \
     && ln regenie /usr/bin/
 
 # BOLT
-ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.4.tar.gz BOLT-LMM_v2.4.tar.gz
-# Testing a beta version of BOLT for this release
-ADD https://data.broadinstitute.org/lohlab/tmp/bolt_v2.4.1_beta bolt_v2.4.1_beta
+ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.4.1.tar.gz BOLT-LMM_v2.4.1.tar.gz
 
-RUN tar -zxf BOLT-LMM_v2.4.tar.gz \
-    && rm BOLT-LMM_v2.4/bolt \
-    && mv bolt_v2.4.1_beta BOLT-LMM_v2.4/bolt \
-    && chmod +x BOLT-LMM_v2.4/bolt \
-    && rm BOLT-LMM_v2.4.tar.gz
+RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
+    && chmod +x BOLT-LMM_v2.4.1/bolt \
+    && rm BOLT-LMM_v2.4.1.tar.gz
 
-ENV PATH=BOLT-LMM_v2.4/:$PATH
+ENV PATH=BOLT-LMM_v2.4.1/:$PATH
 
 ## Install plink/plink2 (just a binary – easy)
 # Annoyingly, plink authors don't have static 'latest' links for plink2 so has to be updated everytime this Dockerfile is run
