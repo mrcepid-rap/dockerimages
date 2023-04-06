@@ -178,7 +178,7 @@ RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
     && chmod +x BOLT-LMM_v2.4.1/bolt \
     && rm BOLT-LMM_v2.4.1.tar.gz
 
-ENV PATH=BOLT-LMM_v2.4.1/:$PATH
+ENV PATH=/BOLT-LMM_v2.4.1/:$PATH
 
 ## Install plink/plink2 (just a binary – easy)
 # Annoyingly, plink authors don't have static 'latest' links for plink2 so has to be updated everytime this Dockerfile is run
