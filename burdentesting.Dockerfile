@@ -103,8 +103,9 @@ RUN tar xvzf R-4.1.1.tar.gz \
     && rm -rf R-4.1.1*
 
 # Required R packages
-RUN R -e "install.packages(c('devtools','RcppArmadillo', 'GMMAT', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork'), dependencies=T, repos='https://cloud.r-project.org')" \
-    && R -e "BiocManager::install('GENESIS')"
+RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork'), dependencies=T, repos='https://cloud.r-project.org')" \
+    && R -e "BiocManager::install('GENESIS')" \
+    && R -e "library(devtools); devtools::install_github('https://github.com/hanchenphd/GMMAT')" \
 
 ## Install VEP
 # First do perl dependencies
