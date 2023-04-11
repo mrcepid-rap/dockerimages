@@ -161,7 +161,7 @@ RUN git clone --depth 1 -b main https://github.com/saigegit/SAIGE \
     && ln SAIGE/extdata/createSparseGRM.R /usr/bin/
 
 # STAAR
-RUN R -e "devtools::install_github('xihaoli/STAAR')"
+RUN R -e "library(devtools); devtools::install_github('xihaoli/STAAR')"
 
 # REGENIE
 RUN git clone https://github.com/rgcgithub/regenie.git \
