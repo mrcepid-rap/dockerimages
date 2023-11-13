@@ -15,7 +15,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 # Install remaining apt packages
 RUN apt -y install gfortran g++ cmake meson ragel gtk-doc-tools ca-certificates curl wget expat default-jre \
     python python3-pip cpanminus  \
-    libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev \
+    libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev libcurl4-gnutls-dev \
     libreadline-dev libz-dev libpcre3-dev libssl-dev libopenblas-dev libeigen3-dev  libglib2.0-dev \
     libboost-all-dev libcairo2-dev libxml2-dev libmysqlclient-dev libpng-dev libexpat1-dev libfribidi-dev libharfbuzz-dev \
     && apt -y clean
@@ -91,19 +91,28 @@ RUN tar -zxf BGEN-665dda1221.tar.gz \
     && ln build/apps/* /bin/
 
 ## Install R
-ADD https://cran.ma.imperial.ac.uk/src/base/R-4/R-4.1.1.tar.gz R-4.1.1.tar.gz
+ADD https://cran.ma.imperial.ac.uk/src/base/R-4/R-4.3.0.tar.gz R-4.3.0.tar.gz
 
-RUN tar xvzf R-4.1.1.tar.gz \
-    && cd R-4.1.1 \
+# R requires v58 of libicu... I hope the install doesn't compromise other tools
+ADD https://github.com/unicode-org/icu/releases/download/release-58-3/icu4c-58_3-src.tgz icu4c-58_3-src.tgz
+
+RUN tar xvzf R-4.3.0.tar.gz \
+    && mv icu4c-58_3-src.tgz R-4.3.0/ \
+    && cd R-4.3.0 \
+    && tar zxf icu4c-58_3-src.tgz \
+    && rm icu4c-58_3-src.tgz \
+    && cd icu/source/ \
+    && ./configure && make && make install  \
+    && cd ../../ \
     && ./configure --with-x=no --with-blas="-lopenblas" \
     && make \
     && mkdir -p /usr/local/lib/R/lib \
     && make install \
     && cd .. \
-    && rm -rf R-4.1.1*
+    && rm -rf R-4.3.0*
 
 # Required R packages
-RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork'), dependencies=T, repos='https://cloud.r-project.org')" \
+RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork', 'RccpParallel', 'optparse', 'qlcMatrix', 'RhpcBLASctl'), dependencies=T, repos='https://cloud.r-project.org')" \
     && R -e "BiocManager::install('GENESIS')" \
     && R -e "library(devtools); devtools::install_github('https://github.com/hanchenphd/GMMAT')"
 
