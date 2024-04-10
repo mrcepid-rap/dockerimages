@@ -13,40 +13,32 @@ RUN apt -y update \
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 
 # Install remaining apt packages
-RUN apt -y install gfortran g++ cmake meson ragel gtk-doc-tools ca-certificates curl wget expat default-jre \
-    python python3-pip cpanminus  \
-    libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev libcurl4-gnutls-dev \
+RUN apt -y install gfortran g++ cmake meson ragel gtk-doc-tools ca-certificates curl wget expat default-jre cpanminus  \
+    libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev \
     libreadline-dev libz-dev libpcre3-dev libssl-dev libopenblas-dev libeigen3-dev  libglib2.0-dev \
     libboost-all-dev libcairo2-dev libxml2-dev libmysqlclient-dev libpng-dev libexpat1-dev libfribidi-dev libharfbuzz-dev \
     && apt -y clean
 
-## Install CADD
-# Install conda
-ENV PATH=/opt/conda/bin:$PATH
+# Install stable python version
+ADD https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz Python-3.8.10.tgz
 
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh  \
-    && /bin/bash ~/miniconda.sh -b -p /opt/conda  \
-    && rm ~/miniconda.sh  \
-    && /opt/conda/bin/conda clean -tipy  \
-    && ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh  \
-    && echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc  \
-    && echo "conda activate base" >> ~/.bashrc \
-    && source ~/.bashrc
+RUN tar -zxf Python-3.8.10.tgz \
+    && cd Python-3.8.10 \
+    && ./configure --enable-optimizations \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf Python-3.8.10*
 
-# Install snakemake
-RUN conda install -c conda-forge -c bioconda snakemake
+ADD https://www.python.org/ftp/python/2.7.3/Python-2.7.3.tgz Python-2.7.3.tgz
 
-# Grab CADD
-RUN git clone https://github.com/kircherlab/CADD-scripts.git
-
-# Install dependencies with snakemake
-RUN snakemake CADD-scripts/test/input.tsv.gz --use-conda --conda-create-envs-only --conda-prefix CADD-scripts/envs \
-    --configfile CADD-scripts/config/config_GRCh38_v1.6.yml --conda-frontend conda --cores 4 --snakefile CADD-scripts/Snakefile \
-    && sed -i 's/snakemake $TMP_OUTFILE --use-conda/snakemake $TMP_OUTFILE --conda-frontend conda --use-conda/' CADD-scripts/CADD.sh \
-    && mkdir -p CADD-scripts/data/prescored/GRCh38_v1.6/
-
-# We need to remove the built in annotations dir so we can fake it there later:
-RUN rm -rf /CADD-scripts/data/annotations/
+RUN tar -zxf Python-2.7.3.tgz \
+    && cd Python-2.7.3 \
+    && ./configure --enable-optimizations \
+    && make \
+    && make install \
+    && cd .. \
+    && rm -rf Python-2.7.3*
 
 # htslib
 RUN git clone --recurse-submodules https://github.com/samtools/htslib.git \
@@ -54,7 +46,8 @@ RUN git clone --recurse-submodules https://github.com/samtools/htslib.git \
     && autoreconf && ./configure --prefix=$PWD \
     && make && make install \
     && ln bin/bgzip /bin/bgzip \
-    && ln bin/tabix /bin/tabix
+    && ln bin/tabix /bin/tabix \
+    && ln bin/annot-tsv /bin/annot-tsv
 
 # samtools
 RUN git clone https://github.com/samtools/samtools.git \
@@ -91,25 +84,17 @@ RUN tar -zxf BGEN-665dda1221.tar.gz \
     && ln build/apps/* /bin/
 
 ## Install R
-ADD https://cran.ma.imperial.ac.uk/src/base/R-4/R-4.3.0.tar.gz R-4.3.0.tar.gz
+# For some reason libicu-dev breaks the current R install. I have no idea why.
+ADD https://cran.ma.imperial.ac.uk/src/base/R-4/R-4.3.3.tar.gz R-4.3.3.tar.gz
 
-# R requires v58 of libicu... I hope the install doesn't compromise other tools
-ADD https://github.com/unicode-org/icu/releases/download/release-58-3/icu4c-58_3-src.tgz icu4c-58_3-src.tgz
-
-RUN tar xvzf R-4.3.0.tar.gz \
-    && mv icu4c-58_3-src.tgz R-4.3.0/ \
-    && cd R-4.3.0 \
-    && tar zxf icu4c-58_3-src.tgz \
-    && rm icu4c-58_3-src.tgz \
-    && cd icu/source/ \
-    && ./configure && make && make install  \
-    && cd ../../ \
-    && ./configure --with-x=no --with-blas="-lopenblas" \
+RUN tar xvzf R-4.3.3.tar.gz \
+    && cd R-4.3.3 \
+    && ./configure --with-x=no --with-blas="-lopenblas" --without-ICU \
     && make \
     && mkdir -p /usr/local/lib/R/lib \
     && make install \
     && cd .. \
-    && rm -rf R-4.3.0*
+    && rm -rf R-4.3.3*
 
 # Required R packages
 RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork', 'RccpParallel', 'optparse', 'qlcMatrix', 'RhpcBLASctl'), dependencies=T, repos='https://cloud.r-project.org')" \
@@ -202,7 +187,7 @@ RUN mkdir plink \
     && rm plink.zip
 
 # plink2
-ADD https://s3.amazonaws.com/plink2-assets/alpha3/plink2_linux_x86_64_20220603.zip plink2.zip
+ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20240318.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
@@ -214,3 +199,9 @@ ADD https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools.static
 
 RUN chmod a+x bedtools \
     && ln bedtools /usr/bin/
+
+# install general_utilities current version
+RUN git clone https://github.com/mrcepid-rap/general_utilities.git \
+    && cd general_utilities \
+    && git checkout v1.3.0 \
+    && pip3 install .
