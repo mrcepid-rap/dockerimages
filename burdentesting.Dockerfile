@@ -97,7 +97,7 @@ RUN tar xvzf R-4.3.3.tar.gz \
     && rm -rf R-4.3.3*
 
 # Required R packages
-RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork', 'RccpParallel', 'optparse', 'qlcMatrix', 'RhpcBLASctl'), dependencies=T, repos='https://cloud.r-project.org')" \
+RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork', 'RccpParallel', 'optparse', 'qlcMatrix', 'RhpcBLASctl', 'svglite'), dependencies=T, repos='https://cloud.r-project.org')" \
     && R -e "BiocManager::install('GENESIS')" \
     && R -e "library(devtools); devtools::install_github('https://github.com/hanchenphd/GMMAT')"
 
@@ -187,7 +187,7 @@ RUN mkdir plink \
     && rm plink.zip
 
 # plink2
-ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20240318.zip plink2.zip
+ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20240516.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
