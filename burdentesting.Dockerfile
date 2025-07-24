@@ -5,21 +5,37 @@ SHELL ["/bin/bash", "-c"]
 
 # To run/build: docker build -f burdentesting.Dockerfile -t egardner413/mrcepid-burdentesting:latest .
 
+# update apt:
+RUN apt -y update
+
+# Install tool to allow us to get package versions back out if we need to
+RUN rm /etc/apt/apt.conf.d/docker-gzip-indexes \
+    && apt-get -y purge apt-show-versions \
+    && rm /var/lib/apt/lists/*lz4 \
+    && apt-get -yo Acquire::GzipIndexes=false update \
+    && apt-get -y install apt-show-versions
+
 ## Install basic software dependencies for required for downstream apt install
-RUN apt -y update \
-    && apt -y install gcc make autoconf git zip
+RUN apt -y install gcc="4:9.3.0-1ubuntu2" make="4.2.1-1.2" autoconf="2.69-11.1" git="1:2.25.1-1ubuntu3.14" zip="3.0-11build1"
 
 # Have to install tzdata in the middle due to goofy interactive mode
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata="2025b-0ubuntu0.20.04.1"
 
 # Install remaining apt packages
-RUN apt -y install gfortran g++ cmake meson ragel gtk-doc-tools ca-certificates curl wget expat default-jre cpanminus  \
-    libbz2-dev libperl-dev libcurl4-openssl-dev liblzma-dev libgsl-dev zlib1g-dev libfreetype6-dev libtiff-dev \
-    libreadline-dev libz-dev libpcre3-dev libssl-dev libopenblas-dev libeigen3-dev  libglib2.0-dev \
-    libboost-all-dev libcairo2-dev libxml2-dev libmysqlclient-dev libpng-dev libexpat1-dev libfribidi-dev libharfbuzz-dev \
+RUN apt -y install gfortran="4:9.3.0-1ubuntu2" g++="4:9.3.0-1ubuntu2" cmake="3.16.3-1ubuntu1.20.04.1" meson="0.53.2-2ubuntu2" \
+    ragel="6.10-1build1" gtk-doc-tools="1.32-4" ca-certificates="20240203~20.04.1" curl="7.68.0-1ubuntu2.25"  \
+    wget="1.20.3-1ubuntu2.1" expat="2.2.9-1ubuntu0.8" default-jre="2:1.11-72" cpanminus="1.7044-1" libbz2-dev="1.0.8-2"  \
+    libperl-dev="5.30.0-9ubuntu0.5" libcurl4-openssl-dev="7.68.0-1ubuntu2.25" liblzma-dev="5.2.4-1ubuntu1.1"  \
+    libgsl-dev="2.5+dfsg-6+deb10u1build0.20.04.1" zlib1g-dev="1:1.2.11.dfsg-2ubuntu1.5" libfreetype6-dev="2.10.1-2ubuntu0.4" \
+    libtiff-dev="4.1.0+git191117-2ubuntu0.20.04.14" libreadline-dev="8.0-4" libpcre3-dev="2:8.39-12ubuntu0.1"  \
+    libssl-dev="1.1.1f-1ubuntu2.24" libopenblas-dev="0.3.8+ds-1ubuntu0.20.04.1" libeigen3-dev="3.3.7-2" \
+    libglib2.0-dev="2.64.6-1~ubuntu20.04.9" libboost-all-dev="1.71.0.0ubuntu2" libcairo2-dev="1.16.0-4ubuntu1"  \
+    libxml2-dev="2.9.10+dfsg-5ubuntu0.20.04.10" libmysqlclient-dev="8.0.42-0ubuntu0.20.04.1" libpng-dev="1.6.37-2"  \
+    libexpat1-dev="2.2.9-1ubuntu0.8" libfribidi-dev="1.0.8-2ubuntu0.1" libharfbuzz-dev="2.6.4-1ubuntu4.3"  \
+    libzstd-dev="1.4.4+dfsg-3ubuntu0.1" libdeflate-dev="1.5-3" libsuperlu-dev="5.2.1+dfsg1-4" \
     && apt -y clean
 
-# Install stable python version
+# Install stable python version compatible w/DNANexus
 ADD https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz Python-3.8.10.tgz
 
 RUN tar -zxf Python-3.8.10.tgz \
@@ -28,7 +44,8 @@ RUN tar -zxf Python-3.8.10.tgz \
     && make \
     && make install \
     && cd .. \
-    && rm -rf Python-3.8.10*
+    && rm -rf Python-3.8.10* \
+    && python3 --version
 
 ADD https://www.python.org/ftp/python/2.7.3/Python-2.7.3.tgz Python-2.7.3.tgz
 
@@ -38,33 +55,42 @@ RUN tar -zxf Python-2.7.3.tgz \
     && make \
     && make install \
     && cd .. \
-    && rm -rf Python-2.7.3*
+    && rm -rf Python-2.7.3* \
+    && python2 --version
 
-# htslib
+# htslib – make sure to check checkout tag if changing version
 RUN git clone --recurse-submodules https://github.com/samtools/htslib.git \
     && cd htslib \
+    && git checkout 1.20 \
     && autoreconf && ./configure --prefix=$PWD \
     && make && make install \
     && ln bin/bgzip /bin/bgzip \
     && ln bin/tabix /bin/tabix \
-    && ln bin/annot-tsv /bin/annot-tsv
+    && ln bin/annot-tsv /bin/annot-tsv \
+    && bgzip --version \
+    && tabix --version \
+    && annot-tsv --version
 
 # samtools
 RUN git clone https://github.com/samtools/samtools.git \
     && cd samtools \
-    && autoheader && autoreconf && ./configure --prefix=$PWD \
+    && git checkout 1.20 \
+    && autoheader && autoreconf && ./configure --prefix=$PWD --with-htslib=/htslib/ \
     && make && make install \
-    && ln bin/samtools /bin/samtools
+    && ln bin/samtools /bin/samtools \
+    && samtools --version
 
 # bcftools
-RUN git clone https://github.com/samtools/bcftools.git \
-    && cd bcftools \
-    && autoheader && autoconf && ./configure --enable-libgsl --enable-perl-filters \
-    && make \
-    && ln bcftools /bin/bcftools
-
 # Set ENV variable to get bcftools plugins to run correctly
 ENV BCFTOOLS_PLUGINS=/bcftools/plugins
+
+RUN git clone https://github.com/samtools/bcftools.git \
+    && cd bcftools \
+    && git checkout 1.20 \
+    && autoheader && autoconf && ./configure --prefix=$PWD --with-htslib=/htslib/ --enable-libgsl --enable-perl-filters \
+    && make \
+    && ln bcftools /bin/bcftools \
+    && bcftools --version
 
 ## Install qctool/bgenix
 ADD https://www.well.ox.ac.uk/~gav/resources/qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz
@@ -73,7 +99,8 @@ ADD https://enkre.net/cgi-bin/code/bgen/tarball/665dda1221/BGEN-665dda1221.tar.g
 RUN tar -zxf qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz \
     && mv 'qctool_v2.2.0-CentOS Linux7.8.2003-x86_64/' 'qctool_v2.2.0' \
     && rm qctool_v2.2.0-CentOS_Linux7.8.2003-x86_64.tgz \
-    && ln qctool_v2.2.0/qctool /usr/bin/
+    && ln qctool_v2.2.0/qctool /usr/bin/ \
+    && qctool -help
 
 RUN tar -zxf BGEN-665dda1221.tar.gz \
     && rm BGEN-665dda1221.tar.gz \
@@ -81,7 +108,9 @@ RUN tar -zxf BGEN-665dda1221.tar.gz \
     && cd BGEN \
     && ./waf configure \
     && ./waf \
-    && ln build/apps/* /bin/
+    && ln build/apps/* /bin/ \
+    && bgenix -help \
+    && cat-bgen -help
 
 ## Install R
 # For some reason libicu-dev breaks the current R install. I have no idea why.
@@ -94,27 +123,51 @@ RUN tar xvzf R-4.3.3.tar.gz \
     && mkdir -p /usr/local/lib/R/lib \
     && make install \
     && cd .. \
-    && rm -rf R-4.3.3*
+    && rm -rf R-4.3.3* \
+    && R --version
 
 # Required R packages
-RUN R -e "install.packages(c('devtools','RcppArmadillo', 'kinship2', 'MASS', 'tidyverse', 'lemon', 'patchwork', 'RccpParallel', 'optparse', 'qlcMatrix', 'RhpcBLASctl', 'svglite'), dependencies=T, repos='https://cloud.r-project.org')" \
-    && R -e "BiocManager::install('GENESIS')" \
-    && R -e "library(devtools); devtools::install_github('https://github.com/hanchenphd/GMMAT')"
+# Have to install devtools 1st to get access to various installation helper methods:
+# Note that this is the ONLY package that is not version controlled as R has no way to bootstrap
+# the installation of devtools from a version controlled package
+RUN R -e 'install.packages("devtools", dependencies=T, repos="https://cloud.r-project.org"); library(devtools)'
+
+# Required R packages
+# Note: Packages ALL have to be installed with one-by-one as install_version does not allow install of multiple packages at once
+# Note: GENESIS version is 2.32.0. HOWEVER bioconductor attaches versions of packages to versions of bioconductor,
+# 		so we acquire it by going to v3.18 of Bioconductor
+# Note: I call library after each install to ensure that the package is installed correctly; install_version / devtools does not error
+#		if the library doesn't install correctly.
+RUN R -e "library(devtools); install_version('RcppArmadillo', version='0.12.8.3.0', repos='https://cloud.r-project.org'); library(RcppArmadillo)" \
+    && R -e "library(devtools); install_version('kinship2', version='1.9.6.1', repos='https://cloud.r-project.org'); library(kinship2)" \
+    && R -e "library(devtools); install_version('MASS', version='7.3-60.0.1', repos='https://cloud.r-project.org'); library(MASS)" \
+    && R -e "library(devtools); install_version('tidyverse', version='2.0.0', repos='https://cloud.r-project.org'); library(tidyverse)" \
+    && R -e "library(devtools); install_version('lemon', version='0.4.9', repos='https://cloud.r-project.org'); library(lemon)" \
+    && R -e "library(devtools); install_version('patchwork', version='1.2.0', repos='https://cloud.r-project.org'); library(patchwork)" \
+    && R -e "library(devtools); install_version('RcppParallel', version='5.1.7', repos='https://cloud.r-project.org'); library(RcppParallel)" \
+    && R -e "library(devtools); install_version('optparse', version='1.7.5', repos='https://cloud.r-project.org'); library(optparse)" \
+    && R -e "library(devtools); install_version('qlcMatrix', version='0.9.8', repos='https://cloud.r-project.org'); library(qlcMatrix)" \
+    && R -e "library(devtools); install_version('RhpcBLASctl', version='0.23-42', repos='https://cloud.r-project.org'); library(RhpcBLASctl)" \
+    && R -e "library(devtools); install_version('svglite', version='2.1.3', dependencies=T, repos='https://cloud.r-project.org'); library(svglite)"  \
+    && R -e "library(devtools); install_version('SKAT', version='2.2.5', dependencies=T, repos='https://cloud.r-project.org'); library(SKAT)" \
+    && R -e "library(devtools); install_version('MetaSKAT', version='0.81', dependencies=T, repos='https://cloud.r-project.org'); library(MetaSKAT)" \
+    && R -e "library(devtools); install_version('lintools', version='0.1.7', dependencies=T, repos='https://cloud.r-project.org'); library(lintools)"\
+    && R -e "BiocManager::install('BiocManager', version='3.18')" \
+    && R -e "library(devtools); BiocManager::install('GENESIS', version='3.18'); library(GENESIS)" \
+    && R -e "library(devtools); devtools::install_github('https://github.com/hanchenphd/GMMAT', ref='v1.4.2'); library(GMMAT)"
 
 ## Install VEP
-# First do perl dependencies
-RUN cpanm install Archive::Zip \
-    && cpanm install DBI \
-    && cpanm install DBD::mysql \
-    && cpanm install HTTP::Tiny \
-    && cpanm install LWP::Simple
+# First do perl dependencies – note that cpanm sometimes doesn't download for unknown reasons. If this breaks, just retry.
+RUN cpanm install Archive::Zip@1.68 LWP::Simple@6.77 DBI@1.643 DBD::mysql@5.005 HTTP::Tiny@0.088 LWP::Simple@6.77
 
 # Then the actual VEP install
-# Remember, we have placed the actual cache into our project files
+# Remember, we have placed the actual cache into our project files; version control here is the release checkout
 RUN git clone https://github.com/Ensembl/ensembl-vep.git \
     && cd ensembl-vep \
     && git checkout release/108 \
-    && perl INSTALL.pl --AUTO ap --NO_UPDATE --PLUGINS CADD,REVEL --CACHEDIR cache/
+    && perl INSTALL.pl --AUTO ap --NO_UPDATE --PLUGINS all --CACHEDIR cache/ \
+    && cd .. \
+    && perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxEntScan/ ensembl-vep/vep --help
 
 # Then LOFTEE (first KENNTTTTTTT. RAGEEEEE.)
 ADD https://github.com/ucscGenomeBrowser/kent/archive/v335_base.tar.gz v335_base.tar.gz
@@ -134,74 +187,120 @@ RUN tar -zxf v335_base.tar.gz \
 
 # Now we should be able to install the Bio::DB packages
 # DO NOT MOVE THIS as these libraries depend on kent being built
-RUN cpanm Bio::DB::BigFile Bio::DB::BigWig DBD::SQLite
+# Bio::DB::BigWig does not have versions, so have to trust...
+RUN cpanm Bio::DB::BigFile@1.07 Bio::DB::BigWig DBD::SQLite@1.74
 
 # Then do the actual loftee stuff
+# Commit a46b502 is from the hg38 branch
 RUN cd ensembl-vep/cache/Plugins/ \
     && git clone https://github.com/konradjk/loftee.git \
     && cd loftee/ \
-    && git checkout grch38
-
-## Install burden testing software
-# SAIGE
-RUN git clone --depth 1 -b main https://github.com/saigegit/SAIGE \
-    && pip3 install cget \
-    && R -e "library(devtools); devtools::install_github('leeshawn/SKAT')" \
-    && R -e "library(devtools); devtools::install_github('leeshawn/MetaSKAT')" \
-    && Rscript ./SAIGE/extdata/install_packages.R \
-    && R CMD INSTALL SAIGE \
-    && chmod +x SAIGE/extdata/*.R \
-    && ln SAIGE/extdata/step1_fitNULLGLMM.R /usr/bin/ \
-    && ln SAIGE/extdata/step2_SPAtests.R /usr/bin/ \
-    && ln SAIGE/extdata/createSparseGRM.R /usr/bin/
-
-# STAAR
-RUN R -e "library(devtools); devtools::install_github('xihaoli/STAAR')"
-
-# REGENIE
-RUN git clone https://github.com/rgcgithub/regenie.git \
-    && cd regenie \
-    && sed -i 's+BGEN_PATH     =+BGEN_PATH     =/BGEN/+' Makefile \
-    && sed -i 's+HAS_BOOST_IOSTREAM := 0+HAS_BOOST_IOSTREAM := 1+' Makefile \
-    && make \
-    && ln regenie /usr/bin/
-
-# BOLT
-ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.4.1.tar.gz BOLT-LMM_v2.4.1.tar.gz
-
-RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
-    && chmod +x BOLT-LMM_v2.4.1/bolt \
-    && rm BOLT-LMM_v2.4.1.tar.gz
-
-ENV PATH=/BOLT-LMM_v2.4.1/:$PATH
+    && git checkout a46b502
 
 ## Install plink/plink2 (just a binary – easy)
 # Annoyingly, plink authors don't have static 'latest' links for plink2 so has to be updated everytime this Dockerfile is run
 
 # plink
-ADD https://s3.amazonaws.com/plink1-assets/dev/plink_linux_x86_64.zip plink.zip
+# version control is the date tag in the URL
+ADD https://s3.amazonaws.com/plink1-assets/plink_linux_x86_64_20231211.zip plink.zip
 
 RUN mkdir plink \
     && unzip plink.zip -d plink/ \
     && ln plink/plink /usr/bin/ \
-    && rm plink.zip
+    && rm plink.zip \
+    && plink --version
 
 # plink2
-ADD https://s3.amazonaws.com/plink2-assets/plink2_linux_x86_64_20240516.zip plink2.zip
+# version control is the date tag in the URL – note MAY BREAK IN THE FUTURE! He likes to delete binaries!
+ADD https://s3.amazonaws.com/plink2-assets/alpha5/plink2_linux_x86_64_20240526.zip plink2.zip
 
 RUN mkdir plink2 \
     && unzip plink2.zip -d plink2/ \
     && ln plink2/plink2 /usr/bin/ \
-    && rm plink2.zip
+    && rm plink2.zip \
+    && plink2 --version
 
 # bedtools
 ADD https://github.com/arq5x/bedtools2/releases/download/v2.30.0/bedtools.static.binary bedtools
 
 RUN chmod a+x bedtools \
-    && ln bedtools /usr/bin/
+    && ln bedtools /usr/bin/ \
+    && bedtools --version
 
 # install general_utilities current version
 RUN git clone https://github.com/mrcepid-rap/general_utilities.git \
     && cd general_utilities \
-    && git checkout v1.3.0 \
+    && git checkout v1.5.4 \
     && pip3 install .
+
+## Install burden testing software
+# STAAR
+RUN R -e "library(devtools); devtools::install_github('https://github.com/xihaoli/STAAR', ref='v0.9.7'); library(STAAR)"
+
+# REGENIE
+RUN git clone https://github.com/rgcgithub/regenie.git \
+    && cd regenie \
+    && git checkout v3.4.1 \
+    && sed -i 's+BGEN_PATH     =+BGEN_PATH     =/BGEN/+' Makefile \
+    && sed -i 's+HAS_BOOST_IOSTREAM := 0+HAS_BOOST_IOSTREAM := 1+' Makefile \
+    && make \
+    && ln regenie /usr/bin/ \
+    && regenie --help
+
+# BOLT
+ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.4.1.tar.gz BOLT-LMM_v2.4.1.tar.gz
+
+# Don't change the PATH variable here as it will break the BOLT install, since we are just extracting the binary
+ENV PATH=/BOLT-LMM_v2.4.1/:$PATH
+
+RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
+    && chmod +x BOLT-LMM_v2.4.1/bolt \
+    && rm BOLT-LMM_v2.4.1.tar.gz \
+    && bolt --help
+
+# SAIGE
+RUN git clone https://github.com/saigegit/SAIGE
+
+# Change workdir so we can install in steps since this build is a bit complicated
+WORKDIR SAIGE/
+
+# Checkout lib and start to modify Makevars
+# This removes the weird pixi env stuff that doesn't work
+# Note that e9ff75b is the most recent commit and coincides with the v1.5.0 release
+RUN git checkout e9ff75b \
+    && sed -i 's_-I../.pixi/envs/default/include__' src/Makevars
+
+# Install shrinkwrap (req'd by savvy):
+RUN git clone --branch v1.2.0 https://github.com/jonathonl/shrinkwrap.git \
+    && awk '/^PKG_CPPFLAGS/ {$0=$0" -I../shrinkwrap/include/"} 1' src/Makevars > tmp \
+    && mv tmp src/Makevars
+
+# Install savvy
+RUN pip3 install cget=="0.2.0" \
+	&& cget install --prefix ./ statgen/savvy \
+    && awk '/^PKG_CPPFLAGS/ {$0=$0" -I../cget/pkg/statgen__savvy/install/include/"} 1' src/Makevars > tmp \
+    && mv tmp src/Makevars
+
+# Install plink libraries – add to SAIGE makevars at the end
+ADD https://github.com/chrchang/plink-ng/archive/refs/tags/v2.0.0-a.6.16.tar.gz plink-ng.tar.gz
+
+# plink2_includes MUST be somewhere that R searches for it (e.g., /lib/)
+RUN tar -zxf plink-ng.tar.gz \
+    && mv plink-ng-2.0.0-a.6.16 plink-ng \
+    && gcc -std=c++14 -fPIC -O3 -o plink2_includes.a plink-ng/2.0/include/*.cc -shared -lz -lzstd -lpthread -lm -ldeflate \
+    && cp plink2_includes.a /lib/
+
+# Install SAIGE – this also moves the installed files and tests them.
+RUN R CMD INSTALL . \
+	&& sed -i 's+-S pixi run --manifest-path /app/pixi.toml Rscript+Rscript+' extdata/step1_fitNULLGLMM.R \
+	&& sed -i 's+-S pixi run --manifest-path /app/pixi.toml Rscript+Rscript+' extdata/step2_SPAtests.R \
+	&& sed -i 's+-S pixi run --manifest-path /app/pixi.toml Rscript+Rscript+' extdata/step3_LDmat.R \
+	&& sed -i 's+-S pixi run --manifest-path /app/pixi.toml Rscript+Rscript+' extdata/createSparseGRM.R \
+	&& mv extdata/step1_fitNULLGLMM.R extdata/step2_SPAtests.R extdata/step3_LDmat.R extdata/createSparseGRM.R /usr/bin/ \
+    && chmod a+x /usr/bin/step1_fitNULLGLMM.R /usr/bin/step2_SPAtests.R /usr/bin/step3_LDmat.R /usr/bin/createSparseGRM.R \
+    && createSparseGRM.R --help  \
+    && step1_fitNULLGLMM.R --help \
+    && step2_SPAtests.R --help \
+    && step3_LDmat.R --help
+
+WORKDIR /
