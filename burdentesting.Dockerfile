@@ -16,7 +16,7 @@ RUN rm /etc/apt/apt.conf.d/docker-gzip-indexes \
     && apt-get -y install apt-show-versions
 
 ## Install basic software dependencies for required for downstream apt install
-RUN apt -y install gcc="4:9.3.0-1ubuntu2" make="4.2.1-1.2" autoconf="2.69-11.1" git="1:2.25.1-1ubuntu3.14" zip="3.0-11build1"
+RUN apt -y install gcc="4:9.3.0-1ubuntu2" make="4.2.1-1.2" autoconf="2.69-11.1" zip="3.0-11build1"
 
 # Have to install tzdata in the middle due to goofy interactive mode
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata="2025b-0ubuntu0.20.04.1"
@@ -31,9 +31,20 @@ RUN apt -y install gfortran="4:9.3.0-1ubuntu2" g++="4:9.3.0-1ubuntu2" cmake="3.1
     libssl-dev="1.1.1f-1ubuntu2.24" libopenblas-dev="0.3.8+ds-1ubuntu0.20.04.1" libeigen3-dev="3.3.7-2" \
     libglib2.0-dev="2.64.6-1~ubuntu20.04.9" libboost-all-dev="1.71.0.0ubuntu2" libcairo2-dev="1.16.0-4ubuntu1"  \
     libxml2-dev="2.9.10+dfsg-5ubuntu0.20.04.10" libmysqlclient-dev="8.0.42-0ubuntu0.20.04.1" libpng-dev="1.6.37-2"  \
-    libexpat1-dev="2.2.9-1ubuntu0.8" libfribidi-dev="1.0.8-2ubuntu0.1" libharfbuzz-dev="2.6.4-1ubuntu4.3"  \
-    libzstd-dev="1.4.4+dfsg-3ubuntu0.1" libdeflate-dev="1.5-3" libsuperlu-dev="5.2.1+dfsg1-4" \
+    libexpat1-dev="2.2.9-1ubuntu0.8" libfribidi-dev="1.0.8-2ubuntu0.1" libharfbuzz-dev="2.6.4-1ubuntu4.3" \
+    libzstd-dev="1.4.4+dfsg-3ubuntu0.1" libdeflate-dev="1.5-3" libsuperlu-dev="5.2.1+dfsg1-4" tcl="8.6.9+1" gettext="0.19.8.1-10build1" \
     && apt -y clean
+
+# Install newer version of git than is available on apt:
+ADD https://www.kernel.org/pub/software/scm/git/git-2.50.1.tar.gz git-2.50.1.tar.gz
+
+RUN tar -zxf git-2.50.1.tar.gz \
+    && rm git-2.50.1.tar.gz \
+	&& cd git-2.50.1 \
+	&& ./configure \
+	&& make \
+	&& make install \
+	&& git --version
 
 # Install stable python version compatible w/DNANexus
 ADD https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz Python-3.8.10.tgz
@@ -59,9 +70,8 @@ RUN tar -zxf Python-2.7.3.tgz \
     && python2 --version
 
 # htslib – make sure to check checkout tag if changing version
-RUN git clone --recurse-submodules https://github.com/samtools/htslib.git \
+RUN git clone --branch 1.20 --depth 1 --recurse-submodules https://github.com/samtools/htslib.git \
     && cd htslib \
-    && git checkout 1.20 \
     && autoreconf && ./configure --prefix=$PWD \
     && make && make install \
     && ln bin/bgzip /bin/bgzip \
@@ -72,9 +82,8 @@ RUN git clone --recurse-submodules https://github.com/samtools/htslib.git \
     && annot-tsv --version
 
 # samtools
-RUN git clone https://github.com/samtools/samtools.git \
+RUN git clone --branch 1.20 --depth 1 --recurse-submodules https://github.com/samtools/samtools.git \
     && cd samtools \
-    && git checkout 1.20 \
     && autoheader && autoreconf && ./configure --prefix=$PWD --with-htslib=/htslib/ \
     && make && make install \
     && ln bin/samtools /bin/samtools \
@@ -84,9 +93,8 @@ RUN git clone https://github.com/samtools/samtools.git \
 # Set ENV variable to get bcftools plugins to run correctly
 ENV BCFTOOLS_PLUGINS=/bcftools/plugins
 
-RUN git clone https://github.com/samtools/bcftools.git \
+RUN git clone --branch 1.20 --depth 1 --recurse-submodules https://github.com/samtools/bcftools.git \
     && cd bcftools \
-    && git checkout 1.20 \
     && autoheader && autoconf && ./configure --prefix=$PWD --with-htslib=/htslib/ --enable-libgsl --enable-perl-filters \
     && make \
     && ln bcftools /bin/bcftools \
@@ -162,9 +170,8 @@ RUN cpanm install Archive::Zip@1.68 LWP::Simple@6.77 DBI@1.643 DBD::mysql@5.005 
 
 # Then the actual VEP install
 # Remember, we have placed the actual cache into our project files; version control here is the release checkout
-RUN git clone https://github.com/Ensembl/ensembl-vep.git \
+RUN git clone --branch release/108 --depth 1 https://github.com/Ensembl/ensembl-vep.git \
     && cd ensembl-vep \
-    && git checkout release/108 \
     && perl INSTALL.pl --AUTO ap --NO_UPDATE --PLUGINS all --CACHEDIR cache/ \
     && cd .. \
     && perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxEntScan/ ensembl-vep/vep --help
@@ -179,6 +186,7 @@ ENV MYSQLINC=/usr/include/mysql
 ENV MYSQLLIBS="-L/usr/lib/x86_64-linux-gnu -lmysqlclient -lpthread -lz -lm -lrt -lssl -lcrypto -ldl"
 
 RUN tar -zxf v335_base.tar.gz \
+    && rm v335_base.tar.gz \
     && cd kent-335_base/src/lib/ \
     && echo 'CFLAGS="-fPIC"' > ../inc/localEnvironment.mk \
     && make clean && make \
@@ -193,9 +201,8 @@ RUN cpanm Bio::DB::BigFile@1.07 Bio::DB::BigWig DBD::SQLite@1.74
 # Then do the actual loftee stuff
 # Commit a46b502 is from the hg38 branch
 RUN cd ensembl-vep/cache/Plugins/ \
-    && git clone https://github.com/konradjk/loftee.git \
-    && cd loftee/ \
-    && git checkout a46b502
+    && git clone --revision a46b502 --depth 1 https://github.com/konradjk/loftee.git \
+    && cd loftee/
 
 ## Install plink/plink2 (just a binary – easy)
 # Annoyingly, plink authors don't have static 'latest' links for plink2 so has to be updated everytime this Dockerfile is run
@@ -228,9 +235,8 @@ RUN chmod a+x bedtools \
     && bedtools --version
 
 # install general_utilities current version
-RUN git clone https://github.com/mrcepid-rap/general_utilities.git \
+RUN git clone --branch v1.5.4 --depth 1 https://github.com/mrcepid-rap/general_utilities.git \
     && cd general_utilities \
-    && git checkout v1.5.4 \
     && pip3 install .
 
 ## Install burden testing software
@@ -238,9 +244,8 @@ RUN git clone https://github.com/mrcepid-rap/general_utilities.git \
 RUN R -e "library(devtools); devtools::install_github('https://github.com/xihaoli/STAAR', ref='v0.9.7'); library(STAAR)"
 
 # REGENIE
-RUN git clone https://github.com/rgcgithub/regenie.git \
+RUN git clone --branch v3.4.1 --depth 1 https://github.com/rgcgithub/regenie.git \
     && cd regenie \
-    && git checkout v3.4.1 \
     && sed -i 's+BGEN_PATH     =+BGEN_PATH     =/BGEN/+' Makefile \
     && sed -i 's+HAS_BOOST_IOSTREAM := 0+HAS_BOOST_IOSTREAM := 1+' Makefile \
     && make \
@@ -259,7 +264,7 @@ RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
     && bolt --help
 
 # SAIGE
-RUN git clone https://github.com/saigegit/SAIGE
+RUN git clone --revision e9ff75b --depth 1 https://github.com/saigegit/SAIGE
 
 # Change workdir so we can install in steps since this build is a bit complicated
 WORKDIR SAIGE/
@@ -267,11 +272,10 @@ WORKDIR SAIGE/
 # Checkout lib and start to modify Makevars
 # This removes the weird pixi env stuff that doesn't work
 # Note that e9ff75b is the most recent commit and coincides with the v1.5.0 release
-RUN git checkout e9ff75b \
-    && sed -i 's_-I../.pixi/envs/default/include__' src/Makevars
+RUN sed -i 's_-I../.pixi/envs/default/include__' src/Makevars
 
 # Install shrinkwrap (req'd by savvy):
-RUN git clone --branch v1.2.0 https://github.com/jonathonl/shrinkwrap.git \
+RUN git clone --branch v1.2.0 --depth 1 https://github.com/jonathonl/shrinkwrap.git \
     && awk '/^PKG_CPPFLAGS/ {$0=$0" -I../shrinkwrap/include/"} 1' src/Makevars > tmp \
     && mv tmp src/Makevars
 
@@ -286,6 +290,7 @@ ADD https://github.com/chrchang/plink-ng/archive/refs/tags/v2.0.0-a.6.16.tar.gz 
 
 # plink2_includes MUST be somewhere that R searches for it (e.g., /lib/)
 RUN tar -zxf plink-ng.tar.gz \
+    && rm plink-ng.tar.gz \
     && mv plink-ng-2.0.0-a.6.16 plink-ng \
     && gcc -std=c++14 -fPIC -O3 -o plink2_includes.a plink-ng/2.0/include/*.cc -shared -lz -lzstd -lpthread -lm -ldeflate \
     && cp plink2_includes.a /lib/
