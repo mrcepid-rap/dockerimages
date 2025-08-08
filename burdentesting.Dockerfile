@@ -138,8 +138,8 @@ RUN tar xvzf R-4.3.3.tar.gz \
 # Have to install devtools 1st to get access to various installation helper methods:
 # Note that this is the ONLY package that is not version controlled as R has no way to bootstrap
 # the installation of devtools from a version controlled package
-RUN R -e 'install.packages(c("R.utils", "devtools"), dependencies=TRUE, repos="https://cloud.r-project.org")' \
- && R -e 'library(R.utils); library(devtools)' \
+RUN R -e 'install.packages("devtools", dependencies=T, repos="https://cloud.r-project.org"); library(devtools)'
+
 
 # Required R packages
 # Note: Packages ALL have to be installed with one-by-one as install_version does not allow install of multiple packages at once
