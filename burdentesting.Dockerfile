@@ -54,20 +54,10 @@ RUN tar -zxf Python-3.8.10.tgz \
     && ./configure --enable-optimizations \
     && make \
     && make install \
+    && ln /usr/local/bin/python3 /usr/local/bin/python \
     && cd .. \
     && rm -rf Python-3.8.10* \
-    && python3 --version
-
-ADD https://www.python.org/ftp/python/2.7.3/Python-2.7.3.tgz Python-2.7.3.tgz
-
-RUN tar -zxf Python-2.7.3.tgz \
-    && cd Python-2.7.3 \
-    && ./configure --enable-optimizations \
-    && make \
-    && make install \
-    && cd .. \
-    && rm -rf Python-2.7.3* \
-    && python2 --version
+    && python --version
 
 # htslib – make sure to check checkout tag if changing version
 RUN git clone --branch 1.20 --depth 1 --recurse-submodules https://github.com/samtools/htslib.git \
@@ -140,13 +130,15 @@ RUN tar xvzf R-4.3.3.tar.gz \
 # the installation of devtools from a version controlled package
 RUN R -e 'install.packages("devtools", dependencies=T, repos="https://cloud.r-project.org"); library(devtools)'
 
+
 # Required R packages
 # Note: Packages ALL have to be installed with one-by-one as install_version does not allow install of multiple packages at once
 # Note: GENESIS version is 2.32.0. HOWEVER bioconductor attaches versions of packages to versions of bioconductor,
 # 		so we acquire it by going to v3.18 of Bioconductor
 # Note: I call library after each install to ensure that the package is installed correctly; install_version / devtools does not error
 #		if the library doesn't install correctly.
-RUN R -e "library(devtools); install_version('RcppArmadillo', version='0.12.8.3.0', repos='https://cloud.r-project.org'); library(RcppArmadillo)" \
+RUN R -e "library(devtools); install_version('R.utils', version='2.13.0', repos='https://cloud.r-project.org'); library(R.utils)" \
+    && R -e "library(devtools); install_version('RcppArmadillo', version='0.12.8.3.0', repos='https://cloud.r-project.org'); library(RcppArmadillo)" \
     && R -e "library(devtools); install_version('kinship2', version='1.9.6.1', repos='https://cloud.r-project.org'); library(kinship2)" \
     && R -e "library(devtools); install_version('MASS', version='7.3-60.0.1', repos='https://cloud.r-project.org'); library(MASS)" \
     && R -e "library(devtools); install_version('tidyverse', version='2.0.0', repos='https://cloud.r-project.org'); library(tidyverse)" \
@@ -201,7 +193,7 @@ RUN cpanm Bio::DB::BigFile@1.07 Bio::DB::BigWig DBD::SQLite@1.74
 # Then do the actual loftee stuff
 # Commit a46b502 is from the hg38 branch
 RUN cd ensembl-vep/cache/Plugins/ \
-    && git clone --revision a46b502 --depth 1 https://github.com/konradjk/loftee.git \
+    && git clone --revision a46b502a68c812c8ae0c5a5721c0603fe81cae8d --depth 1 https://github.com/konradjk/loftee.git \
     && cd loftee/
 
 ## Install plink/plink2 (just a binary – easy)
@@ -239,6 +231,44 @@ RUN git clone --branch v1.5.4 --depth 1 https://github.com/mrcepid-rap/general_u
     && cd general_utilities \
     && pip3 install .
 
+# METAL
+ADD https://github.com/statgen/METAL/archive/refs/tags/2020-05-05.zip METAL-2020-05-05.zip
+
+RUN unzip METAL-2020-05-05.zip \
+&& rm METAL-2020-05-05.zip \
+&& cd METAL-2020-05-05 \
+&& mkdir -p build \
+&& cd build \
+&& cmake -DCMAKE_BUILD_TYPE=Release .. \
+&& make \
+&& make test \
+&& cp metal/metal /usr/bin/metal \
+&& cd / \
+&& rm -rf METAL-2020-05-05 \
+&& metal --version
+
+# GCTA
+ADD https://yanglab.westlake.edu.cn/software/gcta/bin/gcta-1.94.4-linux-kernel-3-x86_64.zip /gcta.zip
+
+RUN unzip /gcta.zip -d /opt \
+&& rm /gcta.zip \
+&& GCTA_DIR=$(find /opt -maxdepth 1 -type d -name "gcta-*") \
+&& chmod +x "$GCTA_DIR/gcta64" \
+&& cp "$GCTA_DIR/gcta64" /usr/bin/gcta \
+&& rm -rf /opt/gcta-* \
+&& gcta || true
+
+# new fugue
+ADD https://csg.sph.umich.edu/abecasis/fugue/fugue-0.2.3.tar.gz /fugue.tar.gz
+
+RUN tar -zxvf /fugue.tar.gz -C /opt \
+&& cd /opt/fugue-0.2.3 \
+&& make all \
+&& cp executables/fugue /usr/bin/fugue \
+&& cp executables/fugue-cc /usr/bin/fugue-cc \
+&& rm -rf /opt/fugue-0.2.3 /fugue.tar.gz \
+&& fugue || true
+
 ## Install burden testing software
 # STAAR
 RUN R -e "library(devtools); devtools::install_github('https://github.com/xihaoli/STAAR', ref='v0.9.7'); library(STAAR)"
@@ -264,7 +294,7 @@ RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
     && bolt --help
 
 # SAIGE
-RUN git clone --revision e9ff75b --depth 1 https://github.com/saigegit/SAIGE
+RUN git clone --revision e9ff75b1e26d29920836088caf5adb81f7ad6398 --depth 1 https://github.com/saigegit/SAIGE
 
 # Change workdir so we can install in steps since this build is a bit complicated
 WORKDIR SAIGE/
