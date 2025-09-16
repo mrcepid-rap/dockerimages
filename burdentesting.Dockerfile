@@ -3,6 +3,22 @@ FROM ubuntu:20.04
 # Ensure /bin/bash is the default shell
 SHELL ["/bin/bash", "-c"]
 
+# -----------------------------------------------------------------------------
+# 1.  Create an unprivileged user for the *runtime* image
+# -----------------------------------------------------------------------------
+ARG RUNTIME_USER=app
+ARG RUNTIME_UID=1001
+
+RUN groupadd --gid ${RUNTIME_UID} ${RUNTIME_USER} \
+ && useradd  --uid  ${RUNTIME_UID} \
+             --gid  ${RUNTIME_UID} \
+             --create-home \
+             --shell /usr/sbin/nologin \
+             ${RUNTIME_USER}
+
+RUN mkdir -p /opt/data /opt/cache \
+ && chown -R ${RUNTIME_USER}:${RUNTIME_USER} /opt/data /opt/cache
+
 # To run/build: docker build -f burdentesting.Dockerfile -t egardner413/mrcepid-burdentesting:latest .
 
 # update apt:
@@ -283,15 +299,17 @@ RUN git clone --branch v3.4.1 --depth 1 https://github.com/rgcgithub/regenie.git
     && regenie --help
 
 # BOLT
-ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.4.1.tar.gz BOLT-LMM_v2.4.1.tar.gz
+ADD https://storage.googleapis.com/broad-alkesgroup-public/BOLT-LMM/downloads/BOLT-LMM_v2.5.tar.gz BOLT-LMM_v2.5.tar.gz
 
-# Don't change the PATH variable here as it will break the BOLT install, since we are just extracting the binary
-ENV PATH=/BOLT-LMM_v2.4.1/:$PATH
+RUN tar -zxf BOLT-LMM_v2.5.tar.gz \
+    && mkdir -p /home/${RUNTIME_USER}/BOLT-LMM_v2.5 \
+    && mv BOLT-LMM_v2.5/* /home/${RUNTIME_USER}/BOLT-LMM_v2.5/ \
+    && chmod +x /home/${RUNTIME_USER}/BOLT-LMM_v2.5/bolt \
+    && chown -R ${RUNTIME_USER}:${RUNTIME_USER} /home/${RUNTIME_USER}/BOLT-LMM_v2.5 \
+    && rm -rf BOLT-LMM_v2.5 BOLT-LMM_v2.5.tar.gz \
+    && /home/${RUNTIME_USER}/BOLT-LMM_v2.5/bolt --help
 
-RUN tar -zxf BOLT-LMM_v2.4.1.tar.gz \
-    && chmod +x BOLT-LMM_v2.4.1/bolt \
-    && rm BOLT-LMM_v2.4.1.tar.gz \
-    && bolt --help
+ENV PATH="/home/${RUNTIME_USER}/BOLT-LMM_v2.5/:${PATH}"
 
 # SAIGE
 RUN git clone --revision e9ff75b1e26d29920836088caf5adb81f7ad6398 --depth 1 https://github.com/saigegit/SAIGE
@@ -338,4 +356,29 @@ RUN R CMD INSTALL . \
     && step2_SPAtests.R --help \
     && step3_LDmat.R --help
 
-WORKDIR /
+# -----------------------------------------------------------------------------
+# 2.  Create the unprivileged user and drop privileges
+# -----------------------------------------------------------------------------
+USER ${RUNTIME_USER}
+WORKDIR /home/${RUNTIME_USER}
+ENV PATH="/usr/local/bin:${PATH}"
+
+# -----------------------------------------------------------------------------
+# 3.  Test user privileges and tool accessibility
+# -----------------------------------------------------------------------------
+# Confirm user is not root and can run key tools
+RUN echo "Current UID: $(id -u)" \
+ && if [ "$(id -u)" = "0" ]; then echo "ERROR: User is root!"; exit 1; fi \
+ && echo "Testing tool accessibility..." \
+ && python --version \
+ && R --version \
+ && plink --version \
+ && plink2 --version \
+ && bedtools --version \
+ && bcftools --version \
+ && samtools --version \
+ && /home/${RUNTIME_USER}/BOLT-LMM_v2.5/bolt --help \
+ && regenie --help \
+ && metal --version \
+ && gcta || true \
+ && fugue || true
